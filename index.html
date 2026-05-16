@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceFay | Luxury Expense Tracker</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS for layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- html2pdf for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gold: '#D4AF37',
+                        'gold-hover': '#C19B2E',
+                        dark: {
+                            bg: '#050505',
+                            surface: '#111111',
+                            border: '#2A2A2A',
+                            text: '#E0E0E0'
+                        },
+                        light: {
+                            bg: '#F8F9FA',
+                            surface: '#FFFFFF',
+                            border: '#EAEAEA',
+                            text: '#1A1A1A'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Base Theme Styling */
+        body {
+            transition: background-color 0.4s ease, color 0.4s ease;
+        }
+        
+        .dark body {
+            background-color: #050505;
+            color: #E0E0E0;
+        }
+
+        body {
+            background-color: #F8F9FA;
+            color: #1A1A1A;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #D4AF37;
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #D4AF37;
+        }
+
+        /* Luxury Input Styling */
+        .luxury-input {
+            width: 100%;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .light .luxury-input {
+            border-color: #EAEAEA;
+            background-color: #FFFFFF;
+            color: #1A1A1A;
+        }
+
+        .dark .luxury-input {
+            border-color: #2A2A2A;
+            background-color: #111111;
+            color: #E0E0E0;
+        }
+
+        .luxury-input:focus {
+            border-color: #D4AF37;
+            box-shadow: 0 0 0 1px #D4AF37;
+        }
+
+        /* Custom styling for date icon in dark mode */
+        .dark input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+        /* Glass effect for cards */
+        .luxury-card {
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .light .luxury-card {
+            background: #FFFFFF;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            border: 1px solid #EAEAEA;
+        }
+
+        .dark .luxury-card {
+            background: #111111;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            border: 1px solid #2A2A2A;
+        }
+
+        /* Animations */
+        .fade-in { animation: fadeIn 0.5s ease forwards; }
+        .slide-up { animation: slideUp 0.5s ease forwards; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Toast Message */
+        #toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            background: #D4AF37;
+            color: #000;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+            font-weight: 500;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Print formatting (PDF Export) */
+        .export-mode .no-print {
+            display: none !important;
+        }
+        
+        .export-mode .luxury-card {
+            border: 1px solid #000 !important;
+            box-shadow: none !important;
+            background: #fff !important;
+            color: #000 !important;
+        }
+        
+        .export-mode table {
+            border-collapse: collapse;
+        }
+        
+        .export-mode th, .export-mode td {
+            border: 1px solid #ddd !important;
+            color: #000 !important;
+        }
+        
+        .export-mode * {
+            color: #000 !important;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased min-h-screen flex flex-col items-center">
+
+    <!-- LOGIN VIEW -->
+    <div id="login-view" class="w-full min-h-screen flex items-center justify-center p-4 fade-in">
+        <div class="luxury-card w-full max-w-md p-8 relative overflow-hidden">
+            <!-- Decorative accent -->
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold to-transparent"></div>
+            
+            <div class="text-center mb-8">
+                <h1 class="font-serif text-3xl font-semibold mb-2">Finance<span class="text-gold">Fay</span></h1>
+                <p class="text-sm opacity-70">Luxury Expense Management</p>
+            </div>
+
+            <form id="login-form" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium mb-1 opacity-80">Username</label>
+                    <input type="text" id="username" class="luxury-input" placeholder="Enter your username" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1 opacity-80">Password</label>
+                    <input type="password" id="password" class="luxury-input" placeholder="Enter your password" required>
+                </div>
+                <div id="login-error" class="text-red-500 text-sm hidden text-center">Invalid username or password.</div>
+                
+                <button type="submit" class="w-full bg-gold hover:bg-gold-hover text-black font-semibold py-3 px-4 rounded-lg transition-colors duration-300 mt-4">
+                    Access Dashboard
+                </button>
+            </form>
+            <div class="mt-6 text-center text-xs opacity-50">
+                <p>Authorized access only</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD VIEW (Hidden by default) -->
+    <div id="dashboard-view" class="w-full max-w-6xl mx-auto p-4 md:p-8 hidden slide-up">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 no-print">
+            <div class="flex items-center gap-3">
+                <h1 class="font-serif text-2xl md:text-3xl font-semibold">Finance<span class="text-gold">Fay</span></h1>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <button id="theme-toggle" class="p-2 rounded-full border border-gray-300 dark:border-gray-700 hover:text-gold transition-colors" title="Toggle Dark/Light Mode">
+                    <!-- Sun Icon (shown in dark mode) -->
+                    <svg id="sun-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    <!-- Moon Icon (shown in light mode) -->
+                    <svg id="moon-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                </button>
+                <button id="logout-btn" class="text-sm font-medium px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-red-500 hover:text-white hover:border-red-500 transition-all">
+                    Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div id="export-content" class="space-y-8">
+            <!-- Top Section: Form & Summary -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Add Expense Form -->
+                <div class="luxury-card p-6 lg:col-span-1 no-print relative">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gold to-transparent rounded-t-xl"></div>
+                    <h2 class="font-serif text-xl font-semibold mb-6" id="form-title">Add New Record</h2>
+                    
+                    <form id="expense-form" class="space-y-4">
+                        <input type="hidden" id="edit-id" value="">
+                        <div>
+                            <label class="block text-sm font-medium mb-1 opacity-80">Date</label>
+                            <input type="date" id="exp-date" class="luxury-input" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1 opacity-80">Description</label>
+                            <input type="text" id="exp-desc" class="luxury-input" placeholder="E.g., Dinner at Ritz" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1 opacity-80">Amount (Rp)</label>
+                            <input type="number" id="exp-amount" class="luxury-input" placeholder="150000" min="0" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1 opacity-80">Category</label>
+                            <select id="exp-category" class="luxury-input" required>
+                                <option value="" disabled selected>Select Category</option>
+                                <option value="Transport">Transport</option>
+                                <option value="Food">Food & Dining</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Others">Others (Specify)</option>
+                            </select>
+                        </div>
+                        <div id="custom-category-container" class="hidden">
+                            <label class="block text-sm font-medium mb-1 opacity-80">Custom Category</label>
+                            <input type="text" id="exp-custom-cat" class="luxury-input" placeholder="Type category name">
+                        </div>
+                        
+                        <div class="pt-2 flex gap-2">
+                            <button type="submit" id="submit-btn" class="flex-1 bg-gold hover:bg-gold-hover text-black font-semibold py-2.5 px-4 rounded-lg transition-colors">
+                                Add Expense
+                            </button>
+                            <button type="button" id="cancel-btn" class="hidden px-4 py-2 border border-gray-400 rounded-lg opacity-80 hover:opacity-100 transition-opacity">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Total Today -->
+                    <div class="luxury-card p-6 flex flex-col justify-center relative overflow-hidden">
+                        <svg class="absolute -right-4 -bottom-4 w-32 h-32 text-gold opacity-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                        <h3 class="text-sm font-medium opacity-70 mb-1">Today's Expenses</h3>
+                        <p class="font-serif text-3xl font-bold text-gold" id="total-today">Rp 0</p>
+                        <p class="text-xs opacity-50 mt-2" id="today-date-display"></p>
+                    </div>
+
+                    <!-- Total Overall -->
+                    <div class="luxury-card p-6 flex flex-col justify-center relative overflow-hidden">
+                        <svg class="absolute -right-4 -bottom-4 w-32 h-32 text-gold opacity-10" fill="currentColor" viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+                        <h3 class="text-sm font-medium opacity-70 mb-1">Total Expenses</h3>
+                        <p class="font-serif text-3xl font-bold text-gold" id="total-all">Rp 0</p>
+                    </div>
+
+                    <!-- Category Breakdown -->
+                    <div class="luxury-card p-6 sm:col-span-2">
+                        <h3 class="font-serif text-lg font-semibold mb-4 border-b border-gray-200 dark:border-gray-800 pb-2">Expenses by Category</h3>
+                        <div id="category-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expense Table -->
+            <div class="luxury-card p-6 relative">
+                <div class="flex justify-between items-center mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">
+                    <h2 class="font-serif text-xl font-semibold">Expense Records</h2>
+                    <button id="export-pdf-btn" class="no-print flex items-center gap-2 text-sm text-gold hover:text-gold-hover transition-colors font-medium">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Download PDF
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="text-xs uppercase tracking-wider opacity-60 border-b border-gray-200 dark:border-gray-800">
+                                <th class="pb-3 font-medium">Date</th>
+                                <th class="pb-3 font-medium">Category</th>
+                                <th class="pb-3 font-medium">Description</th>
+                                <th class="pb-3 font-medium text-right">Amount</th>
+                                <th class="pb-3 font-medium text-center no-print">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expense-table-body" class="text-sm divide-y divide-gray-100 dark:divide-gray-800">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty State -->
+                <div id="empty-state" class="hidden flex flex-col items-center justify-center py-12 opacity-50">
+                    <svg class="w-16 h-16 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <p class="font-serif text-lg">No records found</p>
+                    <p class="text-xs mt-1">Add an expense to see it here.</p>
+                </div>
+            </div>
+            
+            <!-- Report Footer (Only visible in PDF) -->
+            <div id="pdf-footer" class="hidden text-center mt-8 text-xs opacity-50 pt-4 border-t border-gray-300">
+                Generated by FinanceFay - Luxury Expense Tracker
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Custom Modal for Deletion Confirmation -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="luxury-card max-w-sm w-full p-6 text-center transform scale-95 transition-transform duration-300" id="confirm-modal-content">
+            <svg class="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <h3 class="font-serif text-xl font-semibold mb-2">Delete Record?</h3>
+            <p class="text-sm opacity-70 mb-6">This action cannot be undone. The expense record will be permanently removed.</p>
+            <div class="flex gap-3 justify-center">
+                <button id="cancel-delete" class="px-4 py-2 border border-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">Cancel</button>
+                <button id="confirm-delete" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        const CREDENTIALS = { username: 'financefay', password: '060301' };
+        let expenses = JSON.parse(localStorage.getItem('financefay_expenses')) || [];
+        let itemToDelete = null;
+
+        // --- DOM Elements ---
+        const views = {
+            login: document.getElementById('login-view'),
+            dashboard: document.getElementById('dashboard-view')
+        };
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const logoutBtn = document.getElementById('logout-btn');
+        
+        // Form elements
+        const expenseForm = document.getElementById('expense-form');
+        const expDate = document.getElementById('exp-date');
+        const expDesc = document.getElementById('exp-desc');
+        const expAmount = document.getElementById('exp-amount');
+        const expCategory = document.getElementById('exp-category');
+        const customCatContainer = document.getElementById('custom-category-container');
+        const expCustomCat = document.getElementById('exp-custom-cat');
+        const editIdInput = document.getElementById('edit-id');
+        const submitBtn = document.getElementById('submit-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const formTitle = document.getElementById('form-title');
+
+        // Modal elements
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmModalContent = document.getElementById('confirm-modal-content');
+        
+        // --- Utilities ---
+        
+        // Format Currency (IDR)
+        const formatIDR = (amount) => {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+        };
+
+        // Format Date (e.g., 16 May 2026)
+        const formatDate = (dateString) => {
+            const options = { day: 'numeric', month: 'short', year: 'numeric' };
+            return new Date(dateString).toLocaleDateString('en-GB', options);
+        };
+
+        // Get Today's Date String for input (YYYY-MM-DD)
+        const getTodayString = () => {
+            const today = new Date();
+            return today.toISOString().split('T')[0];
+        };
+
+        // Toast Notification System
+        const showToast = (message) => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+            
+            // Trigger animation
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+        };
+
+        // Generate simple SVG icons based on category
+        const getCategoryIcon = (category) => {
+            const baseClass = "w-4 h-4 inline-block mr-2 text-gold";
+            const lowerCat = category.toLowerCase();
+            
+            if (lowerCat.includes('transport')) {
+                return `<svg class="${baseClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>`;
+            } else if (lowerCat.includes('food')) {
+                return `<svg class="${baseClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>`;
+            } else if (lowerCat.includes('shopping')) {
+                return `<svg class="${baseClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>`;
+            } else {
+                return `<svg class="${baseClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>`;
+            }
+        };
+
+        // --- Authentication ---
+        const checkAuth = () => {
+            const isAuth = localStorage.getItem('financefay_auth') === 'true';
+            if (isAuth) {
+                views.login.classList.add('hidden');
+                views.dashboard.classList.remove('hidden');
+                initDashboard();
+            } else {
+                views.login.classList.remove('hidden');
+                views.dashboard.classList.add('hidden');
+            }
+        };
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+
+            if (user === CREDENTIALS.username && pass === CREDENTIALS.password) {
+                localStorage.setItem('financefay_auth', 'true');
+                loginError.classList.add('hidden');
+                checkAuth();
+                showToast("Welcome back!");
+            } else {
+                loginError.classList.remove('hidden');
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('financefay_auth');
+            checkAuth();
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        });
+
+        // --- Theme Management ---
+        const themeToggle = document.getElementById('theme-toggle');
+        const sunIcon = document.getElementById('sun-icon');
+        const moonIcon = document.getElementById('moon-icon');
+        const html = document.documentElement;
+
+        const applyTheme = (theme) => {
+            if (theme === 'dark') {
+                html.classList.add('dark');
+                html.classList.remove('light');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                html.classList.add('light');
+                html.classList.remove('dark');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            }
+        };
+
+        // Init theme
+        const savedTheme = localStorage.getItem('financefay_theme') || 'light';
+        applyTheme(savedTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const isDark = html.classList.contains('dark');
+            const newTheme = isDark ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('financefay_theme', newTheme);
+        });
+
+        // --- Form Logic ---
+        
+        // Handle "Others" category reveal
+        expCategory.addEventListener('change', (e) => {
+            if (e.target.value === 'Others') {
+                customCatContainer.classList.remove('hidden');
+                expCustomCat.setAttribute('required', 'true');
+            } else {
+                customCatContainer.classList.add('hidden');
+                expCustomCat.removeAttribute('required');
+                expCustomCat.value = '';
+            }
+        });
+
+        const resetForm = () => {
+            expenseForm.reset();
+            expDate.value = getTodayString();
+            customCatContainer.classList.add('hidden');
+            expCustomCat.removeAttribute('required');
+            editIdInput.value = '';
+            submitBtn.textContent = 'Add Expense';
+            formTitle.textContent = 'Add New Record';
+            cancelBtn.classList.add('hidden');
+        };
+
+        cancelBtn.addEventListener('click', resetForm);
+
+        // Add / Edit Submission
+        expenseForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const selectedCat = expCategory.value;
+            const finalCategory = selectedCat === 'Others' ? expCustomCat.value.trim() : selectedCat;
+            
+            const expenseData = {
+                id: editIdInput.value || Date.now().toString(),
+                date: expDate.value,
+                description: expDesc.value.trim(),
+                amount: parseFloat(expAmount.value),
+                category: finalCategory
+            };
+
+            if (editIdInput.value) {
+                // Update
+                const index = expenses.findIndex(exp => exp.id === editIdInput.value);
+                if (index !== -1) expenses[index] = expenseData;
+                showToast("Record updated successfully");
+            } else {
+                // Add
+                expenses.push(expenseData);
+                showToast("New expense added");
+            }
+
+            saveAndRender();
+            resetForm();
+        });
+
+        // --- Rendering ---
+        
+        const saveAndRender = () => {
+            // Sort expenses by date descending
+            expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+            localStorage.setItem('financefay_expenses', JSON.stringify(expenses));
+            
+            renderTable();
+            renderSummary();
+        };
+
+        const renderTable = () => {
+            const tbody = document.getElementById('expense-table-body');
+            const emptyState = document.getElementById('empty-state');
+            tbody.innerHTML = '';
+
+            if (expenses.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+
+            expenses.forEach(exp => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-black/5 dark:hover:bg-white/5 transition-colors group';
+                tr.innerHTML = `
+                    <td class="py-4 whitespace-nowrap opacity-80">${formatDate(exp.date)}</td>
+                    <td class="py-4 font-medium flex items-center">
+                        ${getCategoryIcon(exp.category)}
+                        ${exp.category}
+                    </td>
+                    <td class="py-4 whitespace-nowrap">${exp.description}</td>
+                    <td class="py-4 text-right font-semibold whitespace-nowrap">${formatIDR(exp.amount)}</td>
+                    <td class="py-4 text-center whitespace-nowrap no-print">
+                        <div class="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="editExpense('${exp.id}')" class="text-blue-500 hover:text-blue-700 transition-colors" title="Edit">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            </button>
+                            <button onclick="triggerDelete('${exp.id}')" class="text-red-500 hover:text-red-700 transition-colors" title="Delete">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        };
+
+        const renderSummary = () => {
+            const todayStr = getTodayString();
+            document.getElementById('today-date-display').textContent = formatDate(todayStr);
+
+            let totalToday = 0;
+            let totalAll = 0;
+            const catTotals = {};
+
+            expenses.forEach(exp => {
+                // Today's total
+                if (exp.date === todayStr) {
+                    totalToday += exp.amount;
+                }
+                
+                // Overall total
+                totalAll += exp.amount;
+
+                // Category total
+                if (!catTotals[exp.category]) {
+                    catTotals[exp.category] = 0;
+                }
+                catTotals[exp.category] += exp.amount;
+            });
+
+            document.getElementById('total-today').textContent = formatIDR(totalToday);
+            document.getElementById('total-all').textContent = formatIDR(totalAll);
+
+            // Render category breakdown
+            const catContainer = document.getElementById('category-summary');
+            catContainer.innerHTML = '';
+            
+            if (Object.keys(catTotals).length === 0) {
+                catContainer.innerHTML = '<div class="col-span-full text-xs opacity-50">No data available</div>';
+            } else {
+                // Sort categories by amount descending
+                const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+                
+                sortedCats.forEach(([cat, amount]) => {
+                    catContainer.innerHTML += `
+                        <div class="bg-black/5 dark:bg-white/5 p-3 rounded-lg border border-black/5 dark:border-white/5">
+                            <div class="flex items-center gap-1 mb-1 opacity-70 text-xs">
+                                ${getCategoryIcon(cat)} <span class="truncate">${cat}</span>
+                            </div>
+                            <div class="font-semibold">${formatIDR(amount)}</div>
+                        </div>
+                    `;
+                });
+            }
+        };
+
+        // --- Actions ---
+
+        window.editExpense = (id) => {
+            const exp = expenses.find(e => e.id === id);
+            if (!exp) return;
+
+            editIdInput.value = exp.id;
+            expDate.value = exp.date;
+            expDesc.value = exp.description;
+            expAmount.value = exp.amount;
+
+            // Handle Category dropdown
+            const predefinedCats = ['Transport', 'Food', 'Shopping'];
+            if (predefinedCats.includes(exp.category)) {
+                expCategory.value = exp.category;
+                customCatContainer.classList.add('hidden');
+            } else {
+                expCategory.value = 'Others';
+                customCatContainer.classList.remove('hidden');
+                expCustomCat.value = exp.category;
+                expCustomCat.setAttribute('required', 'true');
+            }
+
+            submitBtn.textContent = 'Update Expense';
+            formTitle.textContent = 'Edit Record';
+            cancelBtn.classList.remove('hidden');
+            
+            // Scroll to form smoothly
+            document.getElementById('form-title').scrollIntoView({ behavior: 'smooth' });
+        };
+
+        // Delete Modal Logic
+        window.triggerDelete = (id) => {
+            itemToDelete = id;
+            confirmModal.classList.remove('hidden');
+            setTimeout(() => confirmModalContent.classList.remove('scale-95'), 10);
+        };
+
+        const closeDeleteModal = () => {
+            confirmModalContent.classList.add('scale-95');
+            setTimeout(() => {
+                confirmModal.classList.add('hidden');
+                itemToDelete = null;
+            }, 300);
+        };
+
+        document.getElementById('cancel-delete').addEventListener('click', closeDeleteModal);
+        
+        document.getElementById('confirm-delete').addEventListener('click', () => {
+            if (itemToDelete) {
+                expenses = expenses.filter(e => e.id !== itemToDelete);
+                saveAndRender();
+                showToast("Record deleted successfully");
+                closeDeleteModal();
+            }
+        });
+
+        // Close modal on outside click
+        confirmModal.addEventListener('click', (e) => {
+            if (e.target === confirmModal) closeDeleteModal();
+        });
+
+
+        // --- PDF Export ---
+        document.getElementById('export-pdf-btn').addEventListener('click', () => {
+            if (expenses.length === 0) {
+                showToast("No data to export!");
+                return;
+            }
+
+            showToast("Generating PDF...");
+            
+            const element = document.getElementById('export-content');
+            const pdfFooter = document.getElementById('pdf-footer');
+            
+            // Prepare for PDF (hide unwanted elements)
+            element.classList.add('export-mode');
+            pdfFooter.classList.remove('hidden');
+
+            const opt = {
+                margin:       0.5,
+                filename:     `FinanceFay_Report_${getTodayString()}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            // Generate and save
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Revert UI changes after generation
+                element.classList.remove('export-mode');
+                pdfFooter.classList.add('hidden');
+                showToast("PDF Downloaded!");
+            }).catch(err => {
+                console.error("PDF Export Error:", err);
+                element.classList.remove('export-mode');
+                pdfFooter.classList.add('hidden');
+                showToast("Error generating PDF.");
+            });
+        });
+
+        // --- Initialization ---
+        const initDashboard = () => {
+            expDate.value = getTodayString();
+            saveAndRender(); // Initial render
+        };
+
+        // Run on load
+        document.addEventListener('DOMContentLoaded', checkAuth);
+
+    </script>
+</body>
+</html>
